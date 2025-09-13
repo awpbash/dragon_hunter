@@ -53,7 +53,7 @@ export default function Battle() {
   // ---- Enemy turn with sprite swap + projectile flight ----
   function enemyTurn(guard = false) {
     // damage calc
-    const dmg = Math.floor((Math.random() * 8) + 4);
+    const dmg = Math.floor((Math.random() * 13) + 6);
     console.log(dmg);
     const dealt = guard ? Math.floor(dmg * 0.5) : dmg;
 
