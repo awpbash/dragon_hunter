@@ -1,0 +1,40 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --px:4px; }
+body { @apply bg-zinc-900 text-zinc-100 antialiased; }
+.panel { @apply bg-white text-zinc-900 border-2 border-black rounded-xl shadow-[0_4px_0_#000] p-3; }
+.btn { @apply panel cursor-pointer select-none text-center; }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #000; }
+
+/* ---- Battle animations ---- */
+@keyframes floatY {
+  0% { transform: translateY(0) }
+  50% { transform: translateY(-6px) }
+  100% { transform: translateY(0) }
+}
+@keyframes shakeX {
+  0%,100% { transform: translateX(0) }
+  20% { transform: translateX(-6px) }
+  40% { transform: translateX(6px) }
+  60% { transform: translateX(-4px) }
+  80% { transform: translateX(4px) }
+}
+@keyframes slideUp {
+  0% { transform: translateY(20px); opacity: 0 }
+  100% { transform: translateY(0); opacity: 1 }
+}
+@keyframes hitFlash {
+  0% { filter: none }
+  50% { filter: brightness(1.5) }
+  100% { filter: none }
+}
+
+/* helpers */
+.anim-float { animation: floatY 2.2s ease-in-out infinite; }
+.anim-shake { animation: shakeX 0.35s ease-in-out; }
+.anim-slide-up { animation: slideUp .25s ease-out; }
+.anim-hit { animation: hitFlash .3s linear; }
+

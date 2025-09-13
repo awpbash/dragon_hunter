@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dino Run</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .panel {
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        canvas {
+            touch-action: none;
+        }
+        .btn {
+            background-color: #2196f3;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #1e88e5;
+        }
+        kbd {
+            background-color: #eee;
+            border-radius: 4px;
+            padding: 2px 6px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <main class="w-full max-w-4xl space-y-4">
+        <h1 class="text-2xl font-bold">🦖 Dino Run - Human Runner</h1>
+
+        <div class="panel flex items-center justify-between text-sm">
+            <div>Score: <b id="score">0</b> / 2000 &nbsp; | &nbsp; Best: <b id="best">0</b></div>
+            <div class="hidden md:block text-xs opacity-80">Space/↑ jump, hold ↓ to duck</div>
+        </div>
+
+        <div class="panel relative w-full aspect-[16/9] overflow-hidden select-none">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Overlay states -->
+            <div id="deathOverlay" class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 text-white hidden">
+                <div class="text-2xl font-extrabold">Oof! You crashed.</div>
+                <div>Press <kbd>R</kbd> or use the button to try again.</div>
+                <button class="btn" id="restartBtn">Restart</button>
+            </div>
+            <div id="passedOverlay" class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 text-white hidden">
+                <div class="text-2xl font-extrabold">Nice! You cleared 2000.</div>
+                <button class="btn" id="continueBtn">Continue</button>
+            </div>
+        </div>
+
+        <div class="panel text-xs md:text-sm">
+            Controls: <b>Space/↑</b> to jump, hold <b>↓</b> to duck.
+        </div>
+    </main>
+
+    <script>
+        window.onload = function() {
+            const c = document.getElementById("gameCanvas");
+            const ctx = c.getContext("2d");
+            const scoreEl = document.getElementById("score");
+            const bestEl = document.getElementById("best");
+            const deathOverlay = document.getElementById("deathOverlay");
+            const passedOverlay = document.getElementById("passedOverlay");
+            const restartBtn = document.getElementById("restartBtn");
+
+            let w = 0, h = 0;
+            const fit = () => { 
+                w = c.clientWidth; 
+                h = c.clientHeight; 
+                c.width = w; 
+                c.height = h; 
+            };
+            fit();
+            window.addEventListener("resize", fit);
+
+            // ---- constants ----
+            const GROUND_R = 0.7;
+            const ground = () => Math.floor(h * GROUND_R);
+            const GRAVITY = 0.9;
+            const JUMP_VY = -16;
+            const DUCK_SCALE = 0.58;
+            const PASS_SCORE = 2000;
+
+            // runner state
+            let x = Math.max(30, Math.floor(w * 0.06));
+            let y = ground();
+            let vy = 0;
+            let jumping = false;
+            let ducking = false;
+            let duckKeyHeld = false;
+
+            // difficulty
+            let speed = 7;
+            let spawnEvery = 70; // frames
+            let spawnTick = 0;
+            let sc = 0;
+            let t = 0;
+            let bestScore = 0;
+
+            // world
+            let obs = [];
+            let clouds = [];
+            let raf = 0;
+            let dead = false;
+            let alive = true;
+
+            // controls
+            const jump = () => { if (!jumping && !ducking) { vy = JUMP_VY; jumping = true; } };
+            const onKeyDown = (e) => {
+                if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); jump(); }
+                if (e.code === "ArrowDown") { e.preventDefault(); duckKeyHeld = true; }
+                if (!alive && e.code === "KeyR") { location.reload(); }
+            };
+            const onKeyUp = (e) => { if (e.code === "ArrowDown") duckKeyHeld = false; };
+            const onTouchStart = (e) => { if (e.touches.length === 1) { e.preventDefault(); jump(); } };
+
+            // clouds
+            const spawnCloud = () => {
+                clouds.push({ x: w + Math.random() * w, y: 40 + Math.random() * (h * 0.35), v: 0.5 + Math.random() * 0.6 });
+            };
+            for (let i = 0; i < 4; i++) spawnCloud();
+
+            // obstacles
+            const spawnObstacle = () => {
+                const isBird = Math.random() < 0.35;
+                if (isBird) {
+                    const lanes = [ground() - 40, ground() - 80, ground() - 120];
+                    const laneY = lanes[Math.floor(Math.random() * lanes.length)];
+                    const bw = 34 + Math.random() * 22;
+                    const bh = 24;
+                    obs.push({ x: w + 30, y: laneY - bh, w: bw, h: bh, v: speed + 0.5, kind: "bird", flap: 0 });
+                } else {
+                    const pieces = 1 + Math.floor(Math.random() * 3);
+                    const gap = 8;
+                    let startX = w + 30;
+                    for (let i = 0; i < pieces; i++) {
+                        const segW = 16 + Math.random() * 18;
+                        const segH = 22 + Math.random() * 28;
+                        obs.push({ x: startX, y: ground() - segH, w: segW, h: segH, v: speed, kind: "cactus" });
+                        startX += segW + gap;
+                    }
+                }
+            };
+
+            // draw helpers
+            const drawClouds = () => {
+                ctx.fillStyle = "#e3f2fd";
+                clouds.forEach(cl => {
+                    cl.x -= cl.v;
+                    if (cl.x < -60) { cl.x = w + Math.random() * w; cl.y = 40 + Math.random() * (h * 0.35); }
+                    ctx.beginPath();
+                    ctx.arc(cl.x, cl.y, 16, 0, Math.PI * 2);
+                    ctx.arc(cl.x + 18, cl.y + 4, 14, 0, Math.PI * 2);
+                    ctx.arc(cl.x - 16, cl.y + 6, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            };
+
+            const drawGround = () => {
+                ctx.fillStyle = "#fafafa"; ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = "#2e7d32";
+                ctx.fillRect(0, ground() + 18, w, 4);
+                ctx.fillStyle = "#4caf50";
+                for (let i = 0; i < w; i += 32) ctx.fillRect((i - (t * speed) % 32), ground() + 10, 22, 2);
+            };
+
+            const drawRunner = () => {
+                const baseW = 36, baseH = 44;
+                const rh = ducking ? Math.floor(baseH * DUCK_SCALE) : baseH;
+                const rw = ducking ? Math.floor(baseW * 1.25) : baseW;
+                const rx = x - Math.floor(rw * 0.5);
+                const ry = y - rh;
+
+                ctx.fillStyle = "#1f2937";
+                const torsoH = Math.floor(rh * 0.48);
+                ctx.fillRect(rx + Math.floor(rw * 0.35), ry + Math.floor(rh * 0.2), Math.floor(rw * 0.3), torsoH);
+
+                const headR = Math.floor(rh * 0.18);
+                const headCx = rx + Math.floor(rw * 0.5);
+                const headCy = ry + Math.floor(rh * 0.12) + headR;
+                ctx.fillStyle = "#fcd34d";
+                ctx.beginPath(); ctx.arc(headCx, headCy, headR, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#111"; ctx.fillRect(headCx + headR * 0.2, headCy - headR * 0.2, 3, 3);
+
+                const swing = Math.sin(t * 0.25) * (ducking ? 3 : 6);
+                ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(rx + rw * 0.38, ry + rh * 0.35);
+                ctx.lineTo(rx + rw * 0.25, ry + rh * 0.5 + swing);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(rx + rw * 0.62, ry + rh * 0.35);
+                ctx.lineTo(rx + rw * 0.75, ry + rh * 0.5 - swing);
+                ctx.stroke();
+
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                if (ducking) {
+                    ctx.moveTo(rx + rw * 0.45, ry + rh * 0.68);
+                    ctx.lineTo(rx + rw * 0.35, ry + rh * 0.85);
+                    ctx.moveTo(rx + rw * 0.55, ry + rh * 0.68);
+                    ctx.lineTo(rx + rw * 0.65, ry + rh * 0.85);
+                } else {
+                    const leg = Math.sin(t * 0.25);
+                    ctx.moveTo(rx + rw * 0.48, y - 6);
+                    ctx.lineTo(rx + rw * (0.48 - 0.18 * leg), y + 10);
+                    ctx.moveTo(rx + rw * 0.52, y - 6);
+                    ctx.lineTo(rx + rw * (0.52 + 0.18 * leg), y + 10);
+                }
+                ctx.stroke();
+            };
+
+            const drawObstacle = (o) => {
+                if (o.kind === "bird") {
+                    o.flap += 0.25;
+                    const flapY = Math.sin(o.flap) * 4;
+                    ctx.fillStyle = "#37474f";
+                    ctx.fillRect(o.x, o.y + flapY, o.w, o.h);
+                    ctx.fillStyle = "#212121";
+                    ctx.fillRect(o.x + 4, o.y + flapY + 6, o.w - 8, 3);
+                } else {
+                    ctx.fillStyle = "#5d4037";
+                    ctx.fillRect(o.x, o.y, o.w, o.h);
+                    ctx.fillStyle = "#3e2e26";
+                    ctx.fillRect(o.x + 3, o.y + 3, Math.max(2, o.w - 6), Math.max(2, o.h - 6));
+                }
+            };
+            
+            const hit = (o) => {
+                const baseW = 36, baseH = 44;
+                const rh = ducking ? Math.floor(baseH * DUCK_SCALE) : baseH;
+                const rw = ducking ? Math.floor(baseW * 1.25) : baseW;
+                const rx = x - Math.floor(rw * 0.5);
+                const ry = y - rh;
+                const pad = 4;
+                const ax1 = rx + pad, ay1 = ry + pad, ax2 = rx + rw - pad, ay2 = ry + rh - pad;
+
+                const birdFlapY = o.kind === "bird" ? Math.sin(o.flap) * 4 : 0;
+                const bx1 = o.x + 2, by1 = o.y + 2 + birdFlapY, bx2 = o.x + o.w - 2, by2 = o.y + o.h - 2 + birdFlapY;
+                
+                return !(ax2 < bx1 || ax1 > bx2 || ay2 < by1 || ay1 > by2);
+            };
+
+            const updateScore = () => {
+                scoreEl.textContent = sc.toString();
+                bestEl.textContent = bestScore.toString();
+            };
+
+            const step = () => {
+                ctx.clearRect(0, 0, w, h);
+                drawClouds();
+                drawGround();
+
+                vy += GRAVITY;
+                y += vy;
+                if (y >= ground()) { y = ground(); vy = 0; jumping = false; }
+                ducking = duckKeyHeld && y >= ground();
+
+                drawRunner();
+
+                spawnTick++;
+                if (spawnTick >= spawnEvery) {
+                    spawnObstacle();
+                    spawnTick = 0;
+                    spawnEvery = Math.max(36, spawnEvery - 1);
+                }
+                obs.forEach(o => { o.x -= Math.max(o.v, speed); drawObstacle(o); });
+                obs = obs.filter(o => o.x > -120);
+
+                const behindMargin = 6;
+                for (const o of obs) {
+                    if (o.x + o.w < x - behindMargin) continue;
+                    else if (hit(o)) { 
+                        dead = true; 
+                        break; 
+                    }
+                }
+
+                sc += 1;
+                updateScore();
+                if (sc % 250 === 0) speed = Math.min(14, speed + 0.8);
+
+                if (dead && alive) {
+                    alive = false;
+                    deathOverlay.classList.remove("hidden");
+                    bestScore = Math.max(bestScore, sc);
+                    updateScore();
+                    cancelAnimationFrame(raf);
+                    return;
+                }
+                if (sc >= PASS_SCORE && alive) {
+                    alive = false;
+                    passedOverlay.classList.remove("hidden");
+                    bestScore = Math.max(bestScore, sc);
+                    updateScore();
+                    cancelAnimationFrame(raf);
+                    return;
+                }
+                
+                t++;
+                raf = requestAnimationFrame(step);
+            };
+
+            window.addEventListener("keydown", onKeyDown);
+            window.addEventListener("keyup", onKeyUp);
+            c.addEventListener("touchstart", onTouchStart, { passive: false });
+            restartBtn.addEventListener("click", () => location.reload());
+
+            step();
+        };
+    </script>
+</body>
+</html>

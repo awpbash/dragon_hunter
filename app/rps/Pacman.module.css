@@ -1,0 +1,209 @@
+/* =============== RESTORED CLASSIC LOOK =============== */
+
+/* Page wrapper (very light touch) */
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+}
+
+/* Keep a simple header bar if you render one */
+.hudBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #000;
+  box-shadow: 0 4px 0 #000;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+.hudTitle { font-weight: 800; color:black }
+.hudRight { display: flex; gap: 10px; align-items: center; }
+.good { color: #059669; font-weight: 700; }
+.bad  { color: #dc2626; font-weight: 700; }
+
+/* Neutral frame — no sky/ground theme to avoid overriding your layout */
+.frame {
+  position: relative;
+  border: 2px solid #000;
+  box-shadow: 0 0 0 6px #000;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b1020; /* dark like the classic board */
+}
+/* Make these inert so they don't change visuals */
+.sky, .ground { display: none; }
+
+/* Board container centered inside the frame */
+.board {
+  position: relative;
+  margin: 12px;
+  border: 2px solid #000;
+  box-shadow: inset 0 0 0 4px #1f2937, 0 4px 0 #000;
+  border-radius: 10px;
+  background: #0b1020;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* --- Classic grid: 28 x 31 cells of 20px --- */
+.grid {
+  width: calc(28 * 20px + 2px * 27 + 16px);
+  height: calc(31 * 20px + 2px * 30 + 16px);
+  display: grid;
+  grid-template-columns: repeat(28, 20px);
+  grid-template-rows: repeat(31, 20px);
+  gap: 2px;
+  padding: 8px;
+  background: #0b1020;
+  border-radius: 8px;
+  border: 2px solid #000;
+}
+
+.grid > div {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+}
+
+/* Tiles */
+.wall {
+  background: #1e3a8a;
+  border: 1px solid #93c5fd;
+}
+.ghostLair {
+  background: #0b1020;
+  outline: 1px dashed #64748b;
+}
+.pacDot {
+  background: radial-gradient(circle, #ffd166 32%, transparent 33%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+}
+.powerPellet {
+  background: radial-gradient(circle, #ffffff 46%, transparent 47%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 10px 10px;
+}
+
+/* Actors */
+.pacMan {
+  background: #ffe066;
+  border-radius: 50%;
+  clip-path: polygon(0% 0%, 100% 50%, 0% 100%, 0% 0%);
+  animation: chomp 0.25s linear infinite alternate;
+  border: 1px solid #00000080;
+}
+@keyframes chomp {
+  0%   { clip-path: polygon(0% 0%, 100% 50%, 0% 100%, 0% 0%); }
+  100% { clip-path: polygon(0% 0%, 100% 50%, 0% 100%, 12% 50%); }
+}
+
+.ghost {
+  background-image: url("/dragon.png"); /* ghost = dragon */
+  background-size: cover;
+  background-position: center;
+  filter: drop-shadow(0 2px 0 rgba(0,0,0,.5));
+  border-radius: 4px;
+}
+.scaredGhost {
+  filter: hue-rotate(120deg) saturate(1.2) brightness(1.1) drop-shadow(0 0 6px #93c5fd);
+  outline: 2px dashed #60a5fa;
+}
+
+/* Bottom command panel (kept minimal) */
+.cmdPanel {
+  margin: 10px;
+  background: #ffffff;
+  border: 2px solid #000;
+  box-shadow: inset 0 0 0 4px #d3d3d3, 0 4px 0 #000;
+  border-radius: 10px;
+  min-height: 72px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: black;
+}
+.endRow {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.btn {
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: 0 4px 0 #000;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #000; }
+
+/* =============== JUMPSCARE OVERLAY =============== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  animation: flashIn 120ms ease;
+}
+@keyframes flashIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+.scareImg {
+  max-width: min(90vw, 720px);
+  max-height: min(80vh, 720px);
+  object-fit: contain;
+  image-rendering: pixelated;
+  border: 4px solid #000;
+  box-shadow: 0 0 0 6px #fff;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.solidBtn {
+  position: absolute;
+  bottom: 36px;
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: 0 4px 0 #000;
+  color: black;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.solidBtn:active { transform: translateY(2px); box-shadow: 0 2px 0 #000; }
+
+/* tiles */
+.floor,
+.empty { background: #0f172a; } /* dark slate path; use one class name if you prefer */
+.start { background: #1e293b; outline: 2px dashed #22d3ee; }
+.exit  { background: #14532d; outline: 2px solid #22c55e; }
+.trap  { background: #0f172a; }
+
+/* player (reuse pac-man token if you want) */
+.pacMan {
+  background: #fde047; /* yellow */
+  border-radius: 4px;
+  position: relative;
+}
+.pacMan::after { /* tiny face arrow */
+  content: "";
+  position: absolute;
+  inset: 25% 25%;
+  border-radius: 2px;
+  background: rgba(0,0,0,0.15);
+}
