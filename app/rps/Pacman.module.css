@@ -192,7 +192,7 @@
 .empty { background: #0f172a; } /* dark slate path; use one class name if you prefer */
 .start { background: #1e293b; outline: 2px dashed #22d3ee; }
 .exit  { background: #14532d; outline: 2px solid #22c55e; }
-.trap  { background: #0f172a; }
+.trap  { background: #14532d; outline: 2px solid #22c55e; }
 
 /* player (reuse pac-man token if you want) */
 .pacMan {

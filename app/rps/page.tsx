@@ -2,30 +2,24 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./Pacman.module.css";
-import { getRun } from "@/lib/run";
+import { getRun } from "@/lib/run"; // ✅ pull faceUrl from your session
 
-type Status = "playing" | "won" | "dead";
-
+/**
+ * Maze rules:
+ *  - 1 = wall
+ *  - 0 = floor
+ *  - 5 = START (player spawn)
+ *  - 6 = EXIT (reach to win)
+ *  - 7 = TRAP (triggers jumpscare overlay once)
+ */
 export default function MazeGrid() {
   const r = useRouter();
   const gridRef = useRef<HTMLDivElement | null>(null);
 
-  const [status, setStatus] = useState<Status>("playing");
+  const [status, setStatus] = useState<"playing" | "won" | "dead">("playing");
   const [steps, setSteps] = useState(0);
   const [showScare, setShowScare] = useState(false);
   const [version, setVersion] = useState(0); // restart bump
-
-  // Keep references usable by handlers
-  const stateRef = useRef({
-    width: 28,
-    layout: [] as number[],
-    squares: [] as HTMLDivElement[],
-    playerIndex: 0,
-    exitIndex: 0,
-    canWalk: (idx: number) => false as boolean,
-    applyPlayerStyle: (el: HTMLDivElement) => {},
-    clearPlayerStyle: (el: HTMLDivElement) => {},
-  });
 
   useEffect(() => {
     if (!gridRef.current) return;
@@ -46,7 +40,7 @@ export default function MazeGrid() {
     const faceUrl = getRun()?.faceUrl || null;
 
     // ──────────────────
-    // Maze layout (28 cols × 31 rows)
+    // Complex maze layout (28 cols × 31 rows)
     // ──────────────────
     const layout = [
       1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -96,7 +90,7 @@ export default function MazeGrid() {
       if (v === 7) sq.classList.add(CL.trap, CL.floor);
     }
 
-    // Helpers to style/clear the player cell
+    // Helper: apply/remove the face styling on the current player cell
     const applyPlayerStyle = (el: HTMLDivElement) => {
       el.classList.add(CL.player);
       if (faceUrl) {
@@ -106,6 +100,7 @@ export default function MazeGrid() {
         el.style.borderRadius = "50%";
         el.style.boxShadow = "0 0 0 2px #000 inset, 0 0 12px rgba(0,0,0,.35)";
       } else {
+        // fallback to default Pac-Man token from CSS module
         el.style.backgroundImage = "";
         el.style.borderRadius = "";
         el.style.boxShadow = "";
@@ -113,6 +108,7 @@ export default function MazeGrid() {
     };
     const clearPlayerStyle = (el: HTMLDivElement) => {
       el.classList.remove(CL.player);
+      // clear inline overrides so the cell looks like a normal floor after moving away
       el.style.backgroundImage = "";
       el.style.backgroundSize = "";
       el.style.backgroundPosition = "";
@@ -120,7 +116,7 @@ export default function MazeGrid() {
       el.style.boxShadow = "";
     };
 
-    // Spawn at START
+    // Spawn player at START
     let startIndex = layout.findIndex(v => v === 5);
     if (startIndex < 0) startIndex = 1 * width + 1; // fallback
     let playerIndex = startIndex;
@@ -133,104 +129,39 @@ export default function MazeGrid() {
       idx < layout.length &&
       !squares[idx].classList.contains(CL.wall);
 
-    // Expose to handlers via ref
-    stateRef.current = {
-      width,
-      layout,
-      squares,
-      playerIndex,
-      exitIndex,
-      canWalk,
-      applyPlayerStyle,
-      clearPlayerStyle,
-    };
-
-    const move = (dir: "left" | "right" | "up" | "down") => {
-      if (status !== "playing" || showScare) return;
-      const st = stateRef.current;
-      let next = st.playerIndex;
-      if (dir === "left"  && st.playerIndex % st.width !== 0) next = st.playerIndex - 1;
-      if (dir === "right" && st.playerIndex % st.width !== st.width - 1) next = st.playerIndex + 1;
-      if (dir === "up")   next = st.playerIndex - st.width;
-      if (dir === "down") next = st.playerIndex + st.width;
-      if (!st.canWalk(next)) return;
-
-      st.clearPlayerStyle(st.squares[st.playerIndex]);
-      st.playerIndex = next;
-      st.applyPlayerStyle(st.squares[st.playerIndex]);
-      setSteps(s => s + 1);
-
-      if (st.squares[st.playerIndex].classList.contains(CL.trap)) {
-        st.squares[st.playerIndex].classList.remove(CL.trap);
-        setShowScare(true);
-      }
-      if (st.playerIndex === st.exitIndex) setStatus("won");
-    };
-
-    // Keyboard
     const onKey = (e: KeyboardEvent) => {
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault();
-      if (e.key === "ArrowLeft")  move("left");
-      if (e.key === "ArrowRight") move("right");
-      if (e.key === "ArrowUp")    move("up");
-      if (e.key === "ArrowDown")  move("down");
-    };
-    document.addEventListener("keydown", onKey, { passive: false });
+      if (status !== "playing" || showScare) return;
 
-    // Swipe support
-    let touchStartX = 0, touchStartY = 0, moved = false;
-    const SWIPE_MIN = 24; // px
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
-      e.preventDefault();
-      moved = false;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      // prevent page scroll while interacting with the maze
-      e.preventDefault();
-      moved = true;
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      const t = e.changedTouches[0];
-      const dx = t.clientX - touchStartX;
-      const dy = t.clientY - touchStartY;
-      if (!moved) return;
-      if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        move(dx > 0 ? "right" : "left");
-      } else {
-        move(dy > 0 ? "down" : "up");
+      let next = playerIndex;
+      if (e.key === "ArrowLeft"  && playerIndex % width !== 0) next = playerIndex - 1;
+      if (e.key === "ArrowRight" && playerIndex % width !== width - 1) next = playerIndex + 1;
+      if (e.key === "ArrowUp")   next = playerIndex - width;
+      if (e.key === "ArrowDown") next = playerIndex + width;
+
+      if (!canWalk(next)) return;
+
+      // move: remove from old, add to new (and re-apply face)
+      clearPlayerStyle(squares[playerIndex]);
+      playerIndex = next;
+      applyPlayerStyle(squares[playerIndex]);
+      setSteps(s => s + 1);
+
+      // TRAP -> jumpscare (once)
+      if (squares[playerIndex].classList.contains(CL.trap)) {
+        squares[playerIndex].classList.remove(CL.trap);
+        setShowScare(true);
+      }
+
+      // EXIT -> win
+      if (playerIndex === exitIndex) {
+        setStatus("won");
       }
     };
 
-    // Attach swipe to grid only (not whole page)
-    grid.addEventListener("touchstart", onTouchStart, { passive: false });
-    grid.addEventListener("touchmove", onTouchMove, { passive: false });
-    grid.addEventListener("touchend", onTouchEnd, { passive: false });
-
-    return () => {
-      document.removeEventListener("keydown", onKey as any);
-      grid.removeEventListener("touchstart", onTouchStart as any);
-      grid.removeEventListener("touchmove", onTouchMove as any);
-      grid.removeEventListener("touchend", onTouchEnd as any);
-    };
-  }, [r, version, status, showScare]);
-
-  // On-screen D-pad for mobile
-  const handleMove = (dir: "left" | "right" | "up" | "down") => {
-    const st = stateRef.current;
-    // re-use the same logic as in effect
-    const evt = new KeyboardEvent("keydown", {
-      key:
-        dir === "left" ? "ArrowLeft" :
-        dir === "right" ? "ArrowRight" :
-        dir === "up" ? "ArrowUp" : "ArrowDown"
-    });
-    document.dispatchEvent(evt);
-  };
+    document.addEventListener("keydown", onKey, { passive: false });
+    return () => document.removeEventListener("keydown", onKey as any);
+  }, [r, version]);
 
   return (
     <main className={styles.page}>
@@ -245,21 +176,16 @@ export default function MazeGrid() {
 
       <div className={styles.frame}>
         <div className={styles.board}>
-          {/* TIP: remove styles.sm to make the grid larger on phones */}
+          {/* keep it compact; remove styles.sm for full size */}
           <div ref={gridRef} className={`${styles.grid} ${styles.sm}`} />
         </div>
 
         <div className={styles.cmdPanel}>
-          {status === "playing" && (
-            <p>Use ← ↑ → ↓ (or swipe / D-pad) to reach <b>EXIT</b>. Watch for traps 👀</p>
-          )}
+          {status === "playing" && <p>Use ← ↑ → ↓ to reach <b>EXIT</b>. Watch for traps 👀</p>}
 
           {status !== "playing" && (
             <div className={styles.endRow}>
-              <button
-                className={styles.btn}
-                onClick={() => { setSteps(0); setVersion(v => v + 1); setStatus("playing"); }}
-              >
+              <button className={styles.btn} onClick={() => { setSteps(0); setVersion(v => v + 1); }}>
                 Restart
               </button>
               {status === "won" && (
@@ -269,32 +195,6 @@ export default function MazeGrid() {
               )}
             </div>
           )}
-        </div>
-
-        {/* On-screen D-pad (shows on all screens; tweak with responsive classes if desired) */}
-        <div className="fixed bottom-4 right-4 grid grid-cols-3 gap-2 select-none touch-manipulation">
-          <div />
-          <button
-            aria-label="Up"
-            onClick={() => handleMove("up")}
-            className="w-14 h-14 rounded-xl bg-white/80 text-black font-bold border-2 border-black active:translate-y-[1px]"
-          >↑</button>
-          <div />
-          <button
-            aria-label="Left"
-            onClick={() => handleMove("left")}
-            className="w-14 h-14 rounded-xl bg-white/80 text-black font-bold border-2 border-black active:translate-y-[1px]"
-          >←</button>
-          <button
-            aria-label="Down"
-            onClick={() => handleMove("down")}
-            className="w-14 h-14 rounded-xl bg-white/80 text-black font-bold border-2 border-black active:translate-y-[1px]"
-          >↓</button>
-          <button
-            aria-label="Right"
-            onClick={() => handleMove("right")}
-            className="w-14 h-14 rounded-xl bg-white/80 text-black font-bold border-2 border-black active:translate-y-[1px]"
-          >→</button>
         </div>
       </div>
 
