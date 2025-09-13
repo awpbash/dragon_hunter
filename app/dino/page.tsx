@@ -365,7 +365,7 @@ export default function Dino() {
         // score / difficulty
         g.sc++;
         setScore(g.sc);
-        if (g.sc % 250 === 0) g.speed = Math.min(14, g.speed + 0.3);
+        if (g.sc % 250 === 0) g.speed = Math.min(14, g.speed + 0.4);
 
         // end states
         if (g.dead && alive) {
