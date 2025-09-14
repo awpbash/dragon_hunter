@@ -66,9 +66,12 @@ export default function LeaderboardPage() {
         <h1 className="text-2xl sm:text-3xl font-extrabold">🏆 Leaderboard</h1>
         <div className="w-[96px]" />
       </div>
+      <div className="flex justify-center">
+        <p className='text-m sm:text-l font-extrabold text-center text-gray-400'>Top 3 gets a prize!</p>
+      </div>
 
       {/* podium */}
-      <section className="px-4 sm:px-6 mt-2">
+      <section className="px-4 sm:px-6 mt-4">
         <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end max-w-6xl mx-auto">
           <Podium rank={2} entry={top3[1]} className="h-48 sm:h-56" />
           <Podium rank={1} entry={top3[0]} className="h-60 sm:h-72" highlight />
