@@ -75,7 +75,7 @@ function DoneInner() {
 
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-lg text-white shadow-sm">
           <span className="opacity-80">If you are Xinyun, the password is:</span>
-          <b className="font-mono text-base bg-black/30 px-2 py-0.5 rounded-md tracking-wider">8921</b>
+          <b className="font-mono text-base bg-black/30 px-2 py-0.5 rounded-md tracking-wider">5424</b>
         </div>
 
         <div className="text-sm">
